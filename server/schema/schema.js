@@ -7,23 +7,12 @@ const {
   GraphQLInt,
   GraphQLID,
   GraphQLList,
+  GraphQLNonNull
 } = graphql
 
-
-// dummy data for DB
-let Songs = [
-  {id : "1", name : "Willow", genre : "Pop", singerId : "1"},
-  {id : "2", name : "Sing", genre : "Pop", singerId : "1"},
-  {id : "3", name : "Beggin", genre : "Metal", singerId : "1"},
-  {id : "4", name : "Back To You", genre : "Pop", singerId : "1"},
-]
-
-let Singers = [
-  {id : "1", name : "Taylor Swift", worth : 1000000},
-  {id : "2", name : "Manekin", worth : 30000},
-  {id : "3", name : "Ed Sheeran", worth : 20000},
-  {id : "4", name : "Selena Gomez", worth : 20000},
-]
+// DB Models
+const Song = require('../model/Song')
+const Singer = require('../model/Singer')
 
 
 const SongType = new GraphQLObjectType({
@@ -32,10 +21,11 @@ const SongType = new GraphQLObjectType({
     id : { type : GraphQLID},
     name : { type : GraphQLString},
     genre : { type : GraphQLString},
+    singerId : { type : GraphQLString},
     singer : {
       type : SingerType,
       resolve(parent, args){
-        return _.find(Singers, {id : parent.singerId})
+        return Singer.findById(parent.singerId)
       }
     }
   })
@@ -50,7 +40,7 @@ const SingerType = new GraphQLObjectType({
     songs : {
       type : new GraphQLList(SongType),
       resolve(parent, args){
-        return _.filter(Songs, {singerId : parent.id})
+        return Song.find({singerId : parent.id})
       }
     }
   }
@@ -65,7 +55,7 @@ const RootQuery = new GraphQLObjectType({
       args : { id : {type : GraphQLID}},
       resolve(parent, args){
         // code to fetch data here, from DB.
-        return _.find(Songs, {id : args.id})
+        return Song.findById(args.id)
       }
     },
 
@@ -73,20 +63,63 @@ const RootQuery = new GraphQLObjectType({
       type : SingerType,
       args : { id : {type : GraphQLID}},
       resolve(parent, args){
-        return _.find(Singers, {id : args.id})
+        return Singer.findById(args.id)
       }
     },
-
+    
     Songs : {
       type : new GraphQLList(SongType),
       resolve(parent, args){
-        return Songs
+        return Song.find();
+      }
+    },
+    
+    Singers : {
+      type : new GraphQLList(SingerType),
+      resolve(parent, args){
+        return Singer.find();
+      }
+    }
+  }
+})
+
+
+const Mutation = new GraphQLObjectType({
+  name : "Mutation",
+  fields : {
+
+    newSong :
+    {
+      type : SongType,
+      args : {
+        name : {type : new GraphQLNonNull(GraphQLString)}, 
+        genre :{type : new GraphQLNonNull(GraphQLString)},
+        singerId :{type : GraphQLID}
+      },
+      resolve(parent, args){
+        const song = new Song({...args})
+        return song.save()
+      }
+    },
+
+
+    newSinger :
+    {
+      type : SingerType,
+      args : {
+        name : {type : new GraphQLNonNull(GraphQLString)}, 
+        worth : {type : new GraphQLNonNull(GraphQLInt)}
+      },
+      resolve(parent, args){
+        const singer = new Singer({...args})
+        return singer.save()
       }
     }
   }
 })
 
 module.exports = new GraphQLSchema({
-  query : RootQuery
+  query : RootQuery,
+  mutation : Mutation,
 })
 
